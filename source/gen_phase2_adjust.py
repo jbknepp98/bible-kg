@@ -5,12 +5,14 @@
      (Lucifer's verse goes to Satan, whose alias it is), plus the curated passages of curated beings.
   3. verse_divine: Verse -> God (god_1324) and Verse -> Holy Spirit (holy_spirit_7400) from Theographic.
   4. verse_person rows for the curated unnamed people, from their passages.
+  5. verse_manifestation: verses recording each divine manifestation, from its curated passages.
   God and the Holy Spirit stay out of person and spiritual_being; they are modelled in 05_divine.sql.
 Runs after migrations/03_text_places.sql and initdb/05_divine.sql; idempotent.
 
 Usage: python3 gen_phase2_adjust.py <theographic/json dir> [out.sql]   (default ../migrations/04_phase2_adjustments.sql)
 """
 import collections, json, os, re, sys
+import cur_divine as CD
 import cur_place_names as CPN
 import cur_spirits as CS
 import cur_unnamed as CU
@@ -75,6 +77,14 @@ assert not off, f'spiritual_being verse_count disagrees with linked verses: {off
 # ---- 3. verse_divine
 divine = {d: set(src_verses(d)) for d in DIVINE_SRC}
 
+# ---- 3b. verses that record each divine manifestation (from its curated passages)
+manif = {}
+for mf in CD.MANIFESTATIONS:
+    vs = set(v for x in mf['passages'] for v in osis_verses(x))
+    want = sum(len(osis_verses(x)) for x in mf['passages'])
+    assert len(vs) == want, f"{mf['id']}: passages overlap ({len(vs)} distinct of {want})"
+    manif[mf['id']] = vs
+
 # ---- 4. curated unnamed people
 unnamed = {}
 for p in CU.P:
@@ -104,6 +114,15 @@ out.append('INSERT INTO verse_being (verse_id, being_id, source) VALUES\n' + ',\
 rows = [f"({q(v)}, {q(k)}, 'Theographic')" for k in sorted(divine) for v in sorted(divine[k])]
 out.append('INSERT INTO verse_divine (verse_id, divine_id, source) VALUES\n' + ',\n'.join(rows) + ';')
 
+out.append('''
+-- 3b. verse_manifestation: verses that record a manifestation of God (Verse -records-> Manifestation)
+DROP VIEW IF EXISTS v_atlas_verse_manifestation;
+DROP TABLE IF EXISTS verse_manifestation;
+CREATE TABLE verse_manifestation (verse_id varchar(16) NOT NULL REFERENCES verse,
+  manifestation_id varchar(64) NOT NULL REFERENCES manifestation, PRIMARY KEY (verse_id, manifestation_id));''')
+rows = [f"({q(v)}, {q(k)})" for k in sorted(manif) for v in sorted(manif[k])]
+out.append('INSERT INTO verse_manifestation (verse_id, manifestation_id) VALUES\n' + ',\n'.join(rows) + ';')
+
 out.append('\n-- 1b. a book whose authorship is Unknown asserts no writer (Theographic lists Paul for Hebrews)')
 out.append("DELETE FROM book_writer bw USING book b WHERE b.book_id = bw.book_id AND b.authorship_confidence = 'Unknown';")
 
@@ -116,6 +135,9 @@ out.append('''
 CREATE VIEW v_atlas_verse_being AS
 SELECT x.verse_id, v.book_id, v.chapter_number, v.verse_number, x.being_id, x.source
 FROM verse_being x JOIN verse v USING (verse_id);
+CREATE VIEW v_atlas_verse_manifestation AS
+SELECT x.verse_id, v.book_id, v.chapter_number, v.verse_number, x.manifestation_id
+FROM verse_manifestation x JOIN verse v USING (verse_id);
 CREATE VIEW v_atlas_verse_divine AS
 SELECT x.verse_id, v.book_id, v.chapter_number, v.verse_number, x.divine_id, x.source
 FROM verse_divine x JOIN verse v USING (verse_id);
@@ -124,4 +146,4 @@ GRANT SELECT ON ALL TABLES IN SCHEMA bible TO timebase_reader;
 COMMIT;''')
 open(OUT, 'w', encoding='utf-8').write('\n'.join(out) + '\n')
 print(f'{OUT}: {len(CPN.PLACE_NAMES)} place names; verse_being {sum(map(len, being.values()))} '
-      f'({len(being)} beings); verse_divine {sum(map(len, divine.values()))}; unnamed verse_person {sum(map(len, unnamed.values()))}')
+      f'({len(being)} beings); verse_manifestation {sum(map(len, manif.values()))}; verse_divine {sum(map(len, divine.values()))}; unnamed verse_person {sum(map(len, unnamed.values()))}')
