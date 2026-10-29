@@ -1,0 +1,11 @@
+# secrets
+bible.env
+*.env
+# local backups and scratch
+backups/
+source/names_preview.tsv
+__pycache__/
+*.pyc
+.DS_Store
+# internal product bug report (Flow / Timebase); not for a public repo
+LostDomainBug.md
