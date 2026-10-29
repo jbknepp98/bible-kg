@@ -183,3 +183,19 @@ Save these queries as a script (`verify/phase2.cypher` + `verify/phase2.sql`) an
 ## 11. Housekeeping
 - Rotate the `Claude` Pulse client secret if not done already.
 - Keep `HANDOFF.md` (Phase 1) and this file in the repo with the scripts.
+
+
+## Phase 3: events (done 2026-10-29)
+
+- Postgres: `migrations/05_events.sql` from `source/etl_events.py` (Theographic `events.json`; title fixes in
+  `source/cur_events.py`). Tables `event` (450), `event_verse` (17,570), `event_participant` (881: 849 people,
+  30 God / Holy Spirit, 2 Satan), `event_place` (476), `event_relation` (SubEventOf 202, Follows 392).
+  Verify with `verify/phase3.sql` (12 checks). Apply after `04_phase2_adjustments.sql`.
+- Atlas: library `bible-events` (Event; attestedIn, involves, occurredAt, subEventOf, follows), map file
+  `events.map.json`, folder `Bible.Events`. Built on branch `phase3-events`, merged to main.
+  main: 37,324 instances, 100,807 edges, validation 0 errors.
+- Dates are Theographic's Ussher-based chronology (labelled in DatingBasis). They differ from the conservative
+  dates used for kings and books (e.g. David's reign 1054 BC here vs c. 1010 BC; Exodus 1491 vs 1446 BC).
+- Item 5 curation also done: book summaries and composition dates (`source/cur_books.py`), place modern names and
+  countries (`source/match_place_modern.py` -> `source/place_modern.tsv`, regions in `source/cur_place_modern.py`),
+  verse links for divine manifestations (`records`).
