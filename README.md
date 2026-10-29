@@ -43,5 +43,12 @@ docker exec -i bible-pg psql -U bible_admin -d bible < verify/phase2.sql
   repository (`initdb/`, `migrations/`) is shared under **CC BY-SA 4.0** as well.
 - **King James Version** text: public domain.
 - **Easton's Bible Dictionary** (1897, public domain), via Theographic, for many summaries.
+- **OpenBible.info Bible Geocoding Data**, https://github.com/openbibleinfo/Bible-Geocoding-Data, **CC BY 4.0**:
+  modern site identifications for places (`source/match_place_modern.py`, only identifications OpenBible rates
+  with confidence >= 500 and within 15 km).
+- **Natural Earth** admin-0 country boundaries (public domain) for place countries. Convention: every site west of
+  the Jordan, including Jerusalem, the West Bank and Gaza, is recorded as Israel.
+- Book summaries and composition dates are curated from a conservative Reformed evangelical position (Ligonier
+  Ministries, the Reformation Study Bible); contested dates are given as ranges with the views named.
 - Curated additions (unnamed people, spiritual beings, divine model, display-name epithets, narrative edges) were
   written for this project and checked against the KJV text. They are released under the same CC BY-SA 4.0 terms.

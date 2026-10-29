@@ -5,6 +5,7 @@
      (Lucifer's verse goes to Satan, whose alias it is), plus the curated passages of curated beings.
   3. verse_divine: Verse -> God (god_1324) and Verse -> Holy Spirit (holy_spirit_7400) from Theographic.
   4. verse_person rows for the curated unnamed people, from their passages.
+  6. book summaries, composition dates and author text (cur_books.py).
   5. verse_manifestation: verses recording each divine manifestation, from its curated passages.
   God and the Holy Spirit stay out of person and spiritual_being; they are modelled in 05_divine.sql.
 Runs after migrations/03_text_places.sql and initdb/05_divine.sql; idempotent.
@@ -12,6 +13,7 @@ Runs after migrations/03_text_places.sql and initdb/05_divine.sql; idempotent.
 Usage: python3 gen_phase2_adjust.py <theographic/json dir> [out.sql]   (default ../migrations/04_phase2_adjustments.sql)
 """
 import collections, json, os, re, sys
+import cur_books as CB
 import cur_divine as CD
 import cur_place_names as CPN
 import cur_spirits as CS
@@ -26,6 +28,7 @@ DIVINE_SRC = ['god_1324', 'holy_spirit_7400']
 
 books = json.load(open(f'{SRC}/books.json'))
 osis_of = {b['fields']['bookName']: b['fields']['osisName'] for b in books}
+book_ids = [b['fields']['osisName'] for b in books]
 verse_osis = {v['id']: v['fields']['osisRef'] for v in json.load(open(f'{SRC}/verses.json'))}
 people_src = {p['fields']['personLookup']: p['fields'] for p in json.load(open(f'{SRC}/people.json'))}
 
@@ -123,6 +126,26 @@ CREATE TABLE verse_manifestation (verse_id varchar(16) NOT NULL REFERENCES verse
 rows = [f"({q(v)}, {q(k)})" for k in sorted(manif) for v in sorted(manif[k])]
 out.append('INSERT INTO verse_manifestation (verse_id, manifestation_id) VALUES\n' + ',\n'.join(rows) + ';')
 
+out.append('''
+-- 1c. curated book summaries and composition dates (cur_books.py); widen the label columns first
+DROP VIEW IF EXISTS v_atlas_book;
+ALTER TABLE book ALTER COLUMN composition_date_label TYPE varchar(160), ALTER COLUMN dating_basis TYPE varchar(120);
+CREATE VIEW v_atlas_book AS SELECT book_id, name, short_name, book_order, testament, division, genre, original_language,
+  chapter_count, verse_count, author_traditional, authorship_confidence, composition_year_start, composition_year_end,
+  composition_date_label, dating_basis, summary, source FROM book;''')
+assert set(CB.BOOKS) == set(book_ids), f'book ids differ: {set(CB.BOOKS) ^ set(book_ids)}'
+for b, (y0, y1, label, summ) in CB.BOOKS.items():
+    assert y0 <= y1, b
+    out.append(f"UPDATE book SET composition_year_start = {y0}, composition_year_end = {y1}, composition_date_label = {q(label)}, "
+               f"dating_basis = {q(CB.BASIS)}, summary = {q(summ)} WHERE book_id = {q(b)};")
+for b, a in CB.AUTHOR_TEXT.items():
+    out.append(f'UPDATE book SET author_traditional = {q(a)} WHERE book_id = {q(b)};')
+
+out.append('\n-- 1d. modern names and countries (source/place_modern.tsv from match_place_modern.py)')
+for line in open(os.path.join(HERE, 'place_modern.tsv'), encoding='utf-8').read().splitlines()[1:]:
+    pid, mname, mcountry, _ = line.split('\t')
+    assert pid in place_rows, f'unknown place in place_modern.tsv: {pid}'
+    out.append(f"UPDATE place SET modern_name = {q(mname or None)}, modern_country = {q(mcountry or None)} WHERE place_id = {q(pid)};")
 out.append('\n-- 1b. a book whose authorship is Unknown asserts no writer (Theographic lists Paul for Hebrews)')
 out.append("DELETE FROM book_writer bw USING book b WHERE b.book_id = bw.book_id AND b.authorship_confidence = 'Unknown';")
 
