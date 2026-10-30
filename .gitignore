@@ -12,3 +12,4 @@ LostDomainBug.md
 
 # licensed translation text (trial ESV import) - never commit
 migrations/90_esv_trial.sql
+migrations/91_licensed_translations.sql

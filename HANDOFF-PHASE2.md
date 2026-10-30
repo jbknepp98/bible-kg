@@ -210,21 +210,37 @@ Save these queries as a script (`verify/phase2.cypher` + `verify/phase2.sql`) an
   countries (`source/match_place_modern.py` -> `source/place_modern.tsv`, regions in `source/cur_place_modern.py`),
   verse links for divine manifestations (`records`).
 
-## Trial: ESV text (added 2026-10-29)
+## Translations and footnotes (done 2026-10-29)
 
-- Separate table `bible.esv_text` (verse_id, text, status, note, edition, attribution) + view `v_atlas_esv_text`;
-  nothing else in the database depends on it. Source: unofficial SQLite dump (github.com/BIBLE-Study/SQLite-Databases,
-  `esv sqlite.sql`), which is the **2001 original-edition ESV, not the current 2016 text** (e.g. Isaiah 53:5
-  "wounded… stripes", Matthew 17:15 "epileptic"; Genesis 3:16 "for your husband"). Loaded by `source/gen_esv_trial.py` (patches in `source/cur_esv_patches.py`) into
-  `migrations/90_esv_trial.sql`, which is **git-ignored: licensed text, never commit or publish it**.
-- Statuses: 30,466 as imported; 499 typography fixed (`--` to em dash); 120 defect fixed (missing spaces where line
-  breaks were flattened; 7 lost quotation-mark pairs restored after checking esv.org; Psalm 119 stanza headings
-  stripped; manuscript notes moved out of Mark 16:8 / John 7:52; Psalm 145:13 brackets removed); 16 not in ESV text
-  (the verses the ESV footnotes; empty text + note); 1 patched (3 John 14 now includes ESV verse 15).
-- Checked against esv.org (2,962 verses: 60 random chapters + 40 targeted): 95.5% identical, 2% punctuation only,
-  2.4% wording differs, all of it Crossway's later revisions; no structural defects left in the sample. Expect
-  roughly 750-1,000 verses Bible-wide to differ in wording from the current ESV.
-- Atlas: `TextEsv` and `EsvNote` on Verse (bible-text), fed by a LEFT JOIN in the Connect `VersesDated/[Book]` and
-  `VersesUndated/[Book]` queries.
-- To remove: `DROP VIEW bible.v_atlas_esv_text; DROP TABLE bible.esv_text;` then take the join and the two columns out
-  of those Connect queries, remove the TextEsv/EsvNote map entries from `verses-dated` / `verses-undated`, recompile.
+- Four translations in `bible.verse_text` (one row per verse per translation, 31,102 each): KJV, BSB, ESV, NET.
+  `bible.translation` holds each one's edition, licence and full attribution. Rows carry `status`
+  (as imported / typography fixed / defect fixed / patched / not in text / merged into previous) and `import_note`.
+- Generator: `source/gen_translations.py <theographic> <engbsb usfm> <engnet usfm> <esv.sql>` writes
+  - `migrations/06_translations.sql` (committed): schema, BSB text and notes, citations, views;
+  - `migrations/91_licensed_translations.sql` (**git-ignored: ESV and NET text and NET notes, never commit or publish**).
+  Apply 06 then 91. Re-run both after `03` (which rebuilds `verse_text`).
+- Sources: BSB and NET from ebible.org USFM (`engbsb`, public domain; `engnet`, used by permission). The ESV is the
+  2001 original-edition text from an unofficial dump (`source/esv_import.py`, patches in `source/cur_esv_patches.py`),
+  checked against esv.org: 95.5% identical, the rest Crossway's later revisions; import defects repaired.
+  ebible's NET carries only 39 notes (38 after numbering); the full ~60,000 NET notes need the bible.org file.
+- Numbering: everything uses the KJV verse ids. The NET's 2 Corinthians 13:12-14 is remapped (its 13:13 is stored
+  on 13:14; 13:13 is marked "merged into previous"). Verses a translation omits have empty text and status
+  "not in text".
+- `bible.note`: 4,846 BSB + 38 NET footnotes, each with `kind` (alternative rendering 1,348, explanation 1,076,
+  literal meaning 858, manuscript variant 838, citation 399, measurement 327; NET translator note / verse omitted),
+  `anchor` (the word it hangs on), `label` (e.g. "Psalm title"). Display name "Kind: text" (no references, no brackets).
+- `bible.verse_citation`: 443 verse-to-verse quotation links from the BSB notes ("Cited in ..." anywhere in a note
+  on the source verse, or a bare source reference on the New Testament verse). "See also" cross-references are not
+  included. Almost all run Old Testament to New Testament; six are within the Old Testament (2 Kings 14:6 and
+  2 Chronicles 25:4 quote Deuteronomy 24:16, Nehemiah 1:8 quotes Deuteronomy 30:4, Job 42:3-4 quotes Job 38-40)
+  and two within the New (Acts 1:5 to Acts 11:16, Luke 10:7 to 1 Timothy 5:18).
+- Note display names drop the BSB's parenthetical asides (the full note is in `text`); they may contain
+  references, because for a citation note the reference is the content.
+- Connect: verse topics join `v_atlas_verse_translation` (text_esv, esv_note, text_bsb, bsb_note, text_net,
+  net_note); new topics `Notes/[Book]` (`v_atlas_note`) and `VerseCitations` (`v_atlas_verse_citation`). The views
+  carry book/chapter/verse columns so maps can build verse instance ids.
+- Atlas (bible-text): Verse gains TextBsb, TextNet, BsbNote, NetNote (with TextEsv, EsvNote); new type `Note`
+  (NoteId, DisplayName, Translation, NoteKind, Anchor, NoteLabel, Text); relationships `hasNote` (Verse to Note,
+  inverse noteOn) and `citedIn` (Verse to Verse, inverse cites). Map file `notes.map.json`. Built on branch
+  `translations`, merged to main: 42,208 instances, 106,134 edges. Checks in `verify/translations.sql`.
+- Still to come: NASB, CSB, NIV 2011 (need licensed source files); full NET notes.
