@@ -209,3 +209,17 @@ Save these queries as a script (`verify/phase2.cypher` + `verify/phase2.sql`) an
 - Item 5 curation also done: book summaries and composition dates (`source/cur_books.py`), place modern names and
   countries (`source/match_place_modern.py` -> `source/place_modern.tsv`, regions in `source/cur_place_modern.py`),
   verse links for divine manifestations (`records`).
+
+## Trial: ESV text (added 2026-10-29)
+
+- Separate table `bible.esv_text` (verse_id, text, status, note, edition, attribution) + view `v_atlas_esv_text`;
+  nothing else in the database depends on it. Source: unofficial SQLite dump (github.com/BIBLE-Study/SQLite-Databases,
+  `esv sqlite.sql`), which is the **2011 ESV text, not the 2016 permanent text** (Genesis 3:16 reads "for your
+  husband"). Loaded by `source/gen_esv_trial.py` (patches in `source/cur_esv_patches.py`) into
+  `migrations/90_esv_trial.sql`, which is **git-ignored: licensed text, never commit or publish it**.
+- Statuses: 30,585 as imported; 500 typography fixed (`--` to em dash); 16 not in ESV text (the verses the ESV
+  footnotes; empty text + note); 1 patched (3 John 14 now includes ESV verse 15, which the dump had lost).
+- Atlas: `TextEsv` and `EsvNote` on Verse (bible-text), fed by a LEFT JOIN in the Connect `VersesDated/[Book]` and
+  `VersesUndated/[Book]` queries.
+- To remove: `DROP VIEW bible.v_atlas_esv_text; DROP TABLE bible.esv_text;` then take the join and the two columns out
+  of those Connect queries, remove the TextEsv/EsvNote map entries from `verses-dated` / `verses-undated`, recompile.

@@ -9,3 +9,6 @@ __pycache__/
 .DS_Store
 # internal product bug report (Flow / Timebase); not for a public repo
 LostDomainBug.md
+
+# licensed translation text (trial ESV import) - never commit
+migrations/90_esv_trial.sql
