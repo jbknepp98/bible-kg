@@ -214,11 +214,16 @@ Save these queries as a script (`verify/phase2.cypher` + `verify/phase2.sql`) an
 
 - Separate table `bible.esv_text` (verse_id, text, status, note, edition, attribution) + view `v_atlas_esv_text`;
   nothing else in the database depends on it. Source: unofficial SQLite dump (github.com/BIBLE-Study/SQLite-Databases,
-  `esv sqlite.sql`), which is the **2011 ESV text, not the 2016 permanent text** (Genesis 3:16 reads "for your
-  husband"). Loaded by `source/gen_esv_trial.py` (patches in `source/cur_esv_patches.py`) into
+  `esv sqlite.sql`), which is the **2001 original-edition ESV, not the current 2016 text** (e.g. Isaiah 53:5
+  "wounded… stripes", Matthew 17:15 "epileptic"; Genesis 3:16 "for your husband"). Loaded by `source/gen_esv_trial.py` (patches in `source/cur_esv_patches.py`) into
   `migrations/90_esv_trial.sql`, which is **git-ignored: licensed text, never commit or publish it**.
-- Statuses: 30,585 as imported; 500 typography fixed (`--` to em dash); 16 not in ESV text (the verses the ESV
-  footnotes; empty text + note); 1 patched (3 John 14 now includes ESV verse 15, which the dump had lost).
+- Statuses: 30,466 as imported; 499 typography fixed (`--` to em dash); 120 defect fixed (missing spaces where line
+  breaks were flattened; 7 lost quotation-mark pairs restored after checking esv.org; Psalm 119 stanza headings
+  stripped; manuscript notes moved out of Mark 16:8 / John 7:52; Psalm 145:13 brackets removed); 16 not in ESV text
+  (the verses the ESV footnotes; empty text + note); 1 patched (3 John 14 now includes ESV verse 15).
+- Checked against esv.org (2,962 verses: 60 random chapters + 40 targeted): 95.5% identical, 2% punctuation only,
+  2.4% wording differs, all of it Crossway's later revisions; no structural defects left in the sample. Expect
+  roughly 750-1,000 verses Bible-wide to differ in wording from the current ESV.
 - Atlas: `TextEsv` and `EsvNote` on Verse (bible-text), fed by a LEFT JOIN in the Connect `VersesDated/[Book]` and
   `VersesUndated/[Book]` queries.
 - To remove: `DROP VIEW bible.v_atlas_esv_text; DROP TABLE bible.esv_text;` then take the join and the two columns out
