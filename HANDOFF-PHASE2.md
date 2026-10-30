@@ -244,3 +244,22 @@ Save these queries as a script (`verify/phase2.cypher` + `verify/phase2.sql`) an
   inverse noteOn) and `citedIn` (Verse to Verse, inverse cites). Map file `notes.map.json`. Built on branch
   `translations`, merged to main: 42,208 instances, 106,134 edges. Checks in `verify/translations.sql`.
 - Still to come: NASB, CSB, NIV 2011 (need licensed source files); full NET notes.
+
+## Authors and works: library bible-sources (done 2026-10-30)
+
+- Atlas library `bible-sources` (imports document-core, bible-people, bible-text): types `Author` and `Work`;
+  relationships `creditedTo` (Work or Document -> Author; ContributionRole, CreditOrder, CreditedAs), `embodies`
+  (Document -> Work; Portion, Locator), `partOf` (Work -> Work; PartLabel, PartOrder), `expounds` (Work -> Book, Chapter
+  or Verse; PassageLabel); enums AuthorKind, Tradition, WorkType, ContributionRole, Portion. Reuses bible-people
+  DisplayName, AlsoKnownAs, YearOfBirth/YearOfDeath (text), Affiliations, SummaryOfLife, SummarySource.
+  Instance ids `Bible.Author.<slug>`, `Bible.Work.<slug>`.
+- Postgres: `migrations/07_sources.sql` (tables author, work, work_part, work_credit, document_credit, document_work,
+  work_passage; v_atlas_* views; writer role `bible_sources_writer`, password set by the operator from the
+  document-core workspace's private doccore.env). Rows are created by the document-core service only after a person
+  approves them; `source/export_sources.sh` dumps them to `migrations/08_sources_data.sql` (re-runnable).
+- Connect topics: Authors, Works, WorkParts, WorkCredits, DocumentCredits, DocumentWorks, WorkPassages/[Kind].
+- Bible-Project: `sources.map.json` (authors, works, work-part-of, work-credited-to, work-expounds-book/chapter/verse).
+  The Document-side edges (embodies, document credits) are mapped once document-core's own views are wired into the
+  domain (needs the doc-pg Connect source).
+- First data: Shadrach Meshach Lockridge (Author), That's My King (Work, Sermon), credited as Preacher; the
+  transcript document embodies it (Transcript). Main: 42,210 instances, 106,135 edges, validation 0 errors.
