@@ -8,4 +8,9 @@ RENAMES = {
  'by_title:Reign of Ahaziah (Jehoahaz)': 'Reign of Ahaziah, also called Jehoahaz',
  'by_title:Reign of Johoahaz (Shallum)': 'Reign of Jehoahaz, also called Shallum',   # also fixes the source's "Johoahaz"
 }
-DATING_BASIS = 'Theographic chronology (Ussher-based; creation 4004/4003 BC); approximate'
+# Dates: see chronology.py (conservative timeline mapped from Theographic's Ussher-based years).
+
+# Duration corrections where the source contradicts scripture.
+DURATION_FIXES = {
+ 'Lifetime of Jacob': '147Y',   # Genesis 47:28 "the whole age of Jacob was an hundred forty and seven years" (source: 180Y, Isaac's age)
+}

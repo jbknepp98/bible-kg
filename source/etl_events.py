@@ -8,6 +8,7 @@ Runs after 04_phase2_adjustments.sql (needs person, spiritual_being, divine, pla
 Usage: python3 etl_events.py <theographic/json dir> [out.sql]   (default ../migrations/05_events.sql)
 """
 import json, os, re, sys
+import chronology as CH
 import cur_events as CE
 import cur_spirits as CS
 
@@ -55,11 +56,17 @@ for e in events:
     assert not re.search(r'[()]|\d+:\d+', title), f'title breaks naming rules: {title}'
     assert title not in names, f'duplicate event title: {title}'
     names.add(title)
-    y0, exact = parse_start(e['startDate']); y1 = end_year(y0, e.get('duration'))
+    for anchor, s_y, t_y in CH.ANCHORS:
+        if anchor == e['title']: assert parse_start(e['startDate'])[0] == s_y, f'anchor {anchor} moved in the source'
+    src_y0, exact = parse_start(e['startDate'])
+    # conservative timeline (chronology.py); the end is mapped too, so spans that cross an anchor (a reign counted
+    # with its co-regency) end where the next era begins rather than at start + duration
+    duration = CE.DURATION_FIXES.get(e['title'], e.get('duration'))
+    y0 = CH.map_int(src_y0); y1 = max(y0, CH.map_int(end_year(src_y0, duration)))
+    src_sort = float(e['sortKey']) if e.get('sortKey') is not None else float(src_y0)
     vs = sorted({verse_of[x] for x in e.get('verses', [])}, key=lambda r: sort_of[r])
-    ev_rows.append([eid, int(e['eventID']), title, y0, y1, year_label(y0), year_label(y1), exact, e.get('duration') or '',
-                    float(e['sortKey']) if e.get('sortKey') is not None else float(y0), e.get('notes'),
-                    CE.DATING_BASIS, len(vs), label_of[vs[0]] if vs else None])
+    ev_rows.append([eid, int(e['eventID']), title, y0, y1, year_label(y0), year_label(y1), exact, duration or '',
+                    CH.map_year(src_sort), e.get('notes'), CH.basis(src_y0), len(vs), label_of[vs[0]] if vs else None])
     ev_verse += [(eid, v) for v in vs]
     for x in dict.fromkeys(e.get('participants', [])):
         pid = person_of[x]

@@ -13,7 +13,9 @@ Runs after migrations/03_text_places.sql and initdb/05_divine.sql; idempotent.
 Usage: python3 gen_phase2_adjust.py <theographic/json dir> [out.sql]   (default ../migrations/04_phase2_adjustments.sql)
 """
 import collections, json, os, re, sys
+import chronology as CH
 import cur_books as CB
+import cur_people as CPEOPLE
 import cur_divine as CD
 import cur_place_names as CPN
 import cur_spirits as CS
@@ -29,7 +31,9 @@ DIVINE_SRC = ['god_1324', 'holy_spirit_7400']
 books = json.load(open(f'{SRC}/books.json'))
 osis_of = {b['fields']['bookName']: b['fields']['osisName'] for b in books}
 book_ids = [b['fields']['osisName'] for b in books]
-verse_osis = {v['id']: v['fields']['osisRef'] for v in json.load(open(f'{SRC}/verses.json'))}
+_verses = json.load(open(f'{SRC}/verses.json'))
+verse_osis = {v['id']: v['fields']['osisRef'] for v in _verses}
+verse_year = {v['fields']['osisRef']: int(v['fields']['yearNum']) for v in _verses if v['fields'].get('yearNum') not in (None, '')}
 people_src = {p['fields']['personLookup']: p['fields'] for p in json.load(open(f'{SRC}/people.json'))}
 
 def osis_verses(passage):
@@ -146,6 +150,29 @@ for line in open(os.path.join(HERE, 'place_modern.tsv'), encoding='utf-8').read(
     pid, mname, mcountry, _ = line.split('\t')
     assert pid in place_rows, f'unknown place in place_modern.tsv: {pid}'
     out.append(f"UPDATE place SET modern_name = {q(mname or None)}, modern_country = {q(mcountry or None)} WHERE place_id = {q(pid)};")
+out.append('''
+-- 1e. one conservative timeline (chronology.py): verse years and source-dated birth/death years are mapped from
+--     Theographic's Ussher-based years; curated person years (cur_people by/dy) are left as they are
+CREATE TEMP TABLE vy (verse_id varchar(16) PRIMARY KEY, y integer, basis varchar(120)) ON COMMIT DROP;''')
+rows = [f"({q(v)}, {CH.map_int(y)}, {q(CH.basis_short(y))})" for v, y in sorted(verse_year.items())]
+out.append('INSERT INTO vy VALUES\n' + ',\n'.join(rows) + ';')
+out.append('UPDATE verse SET approx_year = vy.y, dating_basis = vy.basis FROM vy WHERE vy.verse_id = verse.verse_id;')
+_lines = open(os.path.join(HERE, '..', 'initdb', '02_data.sql'), encoding='utf-8').read().split('\n')
+_s = next(i for i, l in enumerate(_lines) if l.startswith('COPY bible.person '))
+_cols = re.search(r'\((.*)\)', _lines[_s])[1].split(', ')
+curated_b = {k for k, d in CPEOPLE.P.items() if 'by' in d}
+curated_d = {k for k, d in CPEOPLE.P.items() if 'dy' in d}
+for line in _lines[_s + 1:]:
+    if line == '\\.': break
+    r = dict(zip(_cols, line.split('\t')))
+    sets = []
+    for col, curated in (('year_of_birth', curated_b), ('year_of_death', curated_d)):
+        if r[col] != '\\N' and r['person_id'] not in curated:
+            y = CH.map_int(int(r[col]))
+            sets.append(f"{col} = {y}, {col}_label = {q(CH.label(y))}")
+    if sets:
+        out.append(f"UPDATE person SET {', '.join(sets)} WHERE person_id = {q(r['person_id'])};")
+
 out.append('\n-- 1b. a book whose authorship is Unknown asserts no writer (Theographic lists Paul for Hebrews)')
 out.append("DELETE FROM book_writer bw USING book b WHERE b.book_id = bw.book_id AND b.authorship_confidence = 'Unknown';")
 

@@ -194,8 +194,18 @@ Save these queries as a script (`verify/phase2.cypher` + `verify/phase2.sql`) an
 - Atlas: library `bible-events` (Event; attestedIn, involves, occurredAt, subEventOf, follows), map file
   `events.map.json`, folder `Bible.Events`. Built on branch `phase3-events`, merged to main.
   main: 37,324 instances, 100,807 edges, validation 0 errors.
-- Dates are Theographic's Ussher-based chronology (labelled in DatingBasis). They differ from the conservative
-  dates used for kings and books (e.g. David's reign 1054 BC here vs c. 1010 BC; Exodus 1491 vs 1446 BC).
+- **One conservative timeline** (Jeff's decision, 2026-10-29): `source/chronology.py` maps Theographic's Ussher-based
+  years onto the conservative chronology (Reformation Study Bible: 430-year sojourn, Exodus 1446 BC, Saul 1050,
+  David 1010, Solomon 970, temple 966, division 931, Thiele kings) by interpolating between 34 anchor events. Applied
+  to events (`etl_events.py`), verse `approx_year` and source-dated person birth/death years (`gen_phase2_adjust.py`);
+  curated person years are left alone. Before Abraham the Genesis genealogies are shifted with him (creation
+  4174 BC, labelled as fixing no date); after 400 BC and in the New Testament source dates are kept. Every
+  event and verse records which basis applies in `dating_basis`.
+- Checked: 29 of 39 king records agree with their reign events within 3 years; of the rest, 3 are joins on a
+  shared first name (Ahaziah, Joash, Jehoahaz) and 4 are co-regency conventions (Jehoram, Pekah, Jotham, Manasseh:
+  the king record counts from the co-regency, the event from the sole reign).
+- Source corrections: Lifetime of Jacob 147 years (Genesis 47:28; source had 180). Known source inconsistency left
+  as is: Joshua's lifetime and death events disagree by 13 years.
 - Item 5 curation also done: book summaries and composition dates (`source/cur_books.py`), place modern names and
   countries (`source/match_place_modern.py` -> `source/place_modern.tsv`, regions in `source/cur_place_modern.py`),
   verse links for divine manifestations (`records`).
